@@ -1,0 +1,46 @@
+name: PowerShell 5.1 evidence
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: ["ci/ps51-evidence-5396"]
+
+jobs:
+  ps51:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: uv sync --extra test
+
+      - name: Runtimes
+        shell: pwsh
+        run: |
+          powershell.exe -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'
+          Get-Command bash -All | Format-Table Source
+          bash -c "uname -s; bash --version | head -1"
+
+      - name: With the fix (Windows PowerShell 5.1)
+        run: uv run python .github/ps51/run.py
+
+      - name: With common.ps1 from main 979b0a3c (expected to fail)
+        shell: pwsh
+        run: |
+          git show 979b0a3c:scripts/powershell/common.ps1 | Set-Content -LiteralPath scripts/powershell/common.ps1 -Encoding utf8NoBOM
+          uv run python .github/ps51/run.py
+          "exit code on main's common.ps1: $LASTEXITCODE"
+          exit 0
